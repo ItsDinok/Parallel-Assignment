@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Tutorial 2.cpp" />
+    <ClCompile Include="Parallel Assignment.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernels">
@@ -15,6 +15,8 @@
     <None Include="kernels\my_kernels.cl">
       <Filter>kernels</Filter>
     </None>
+    <None Include="handler.py" />
+    <None Include="data.csv" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\Utils.h">

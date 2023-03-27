@@ -1,6 +1,4 @@
-﻿  Tutorial 2.cpp
-  cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 220 (OpenCL 2.2)
-  Tutorial 2.vcxproj -> C:\Users\Computing\Source\Repos\Parallel-Programming\x64\Debug\Tutorial 2\Tutorial 2.exe
+﻿  Tutorial 2.vcxproj -> C:\Users\Computing\Source\Repos\Parallel-Assignment\x64\Debug\Tutorial 2\Tutorial 2.exe
   ..\images\cat.pgm
   ..\images\Einstein.pgm
   ..\images\test.pgm
