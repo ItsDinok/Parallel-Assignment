@@ -1,13 +1,1 @@
-﻿  Tutorial 2.vcxproj -> C:\Users\Computing\Source\Repos\Parallel-Assignment\x64\Debug\Tutorial 2\Tutorial 2.exe
-  ..\images\cat.pgm
-  ..\images\Einstein.pgm
-  ..\images\test.pgm
-  ..\images\test_large.pgm
-  4 File(s) copied
-  kernels\my_kernels.cl
-  1 File(s) copied
-  ..\images\cat.pgm
-  ..\images\Einstein.pgm
-  ..\images\test.pgm
-  ..\images\test_large.pgm
-  4 File(s) copied
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(439,5): error MSB8020: The build tools for v143 (Platform Toolset = 'v143') cannot be found. To build using the v143 build tools, please install v143 build tools.  Alternatively, you may upgrade to the current Visual Studio tools by selecting the Project menu or right-click the solution, and then selecting "Retarget solution".

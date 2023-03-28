@@ -30,11 +30,12 @@ void print_help() {
 //By Gabriella Di Gregorio DIG15624188
 
 int main(int argc, char **argv) {
-	//Part 1 - handle command line options such as device selection, verbosity, etc.
+	// This part handles the command line options
 	int platformID = 0;
 	int deviceID = 0;
-	string imageName = "test_large.pgm"; //Change this to change the input image. Images available: test.pgm, test_large.pgm, Einstein.pgm, cat.pgm
+	string imageName = "test_large.pgm"; // Change this to change the input image. Images available: test.pgm, test_large.pgm
 
+	// This determines the correct type of platform and device to use
 	for (int i = 1; i < argc; i++) {
 		if ((strcmp(argv[i], "-p") == 0) && (i < (argc - 1))) { platformID = atoi(argv[++i]); }
 		else if ((strcmp(argv[i], "-d") == 0) && (i < (argc - 1))) { deviceID = atoi(argv[++i]); }
@@ -45,34 +46,33 @@ int main(int argc, char **argv) {
 
 	cimg::exception_mode(0);
 
-	//detect any potential exceptions
+	// This detects exceptions
 	try {
 		CImg<unsigned char> inputImage(imageName.c_str());
 		CImgDisplay displayInput(inputImage,"input");
 
-		//a 3x3 convolution mask implementing an averaging filter
+		// A 3x3 convolution mask implementing an averaging filter
 		vector<float> convolution = { 1.f / 9, 1.f / 9, 1.f / 9,
 									  1.f / 9, 1.f / 9, 1.f / 9,
 									  1.f / 9, 1.f / 9, 1.f / 9 };
 
-		//Part 3 - host operations
-		//3.1 Select computing devices
+		// This handles the host operations
+		
+		// Select computing devices
 		cl::Context context = GetContext(platformID, deviceID);
-
-		//display the selected device
 		cout << "Runing on " << GetPlatformName(platformID) << ", " << GetDeviceName(platformID, deviceID) << endl;
 
-		//create a queue to which we will push commands for the device
+		// Creates a command queue
 		cl::CommandQueue queue(context, CL_QUEUE_PROFILING_ENABLE);
 
-		//3.2 Load & build the device code
+		// Builds device code
 		cl::Program::Sources sources;
 
 		AddSources(sources, "kernels/my_kernels.cl");
 
 		cl::Program program(context, sources);
 
-		//build and debug the kernel code
+		// Builds Kernel Code
 		try { 
 			program.build();
 		}
@@ -83,28 +83,25 @@ int main(int argc, char **argv) {
 			throw err;
 		}
 
-		//Part 3 - memory allocation
-		//host - input
+		// Memory allocation
 
 		typedef int mytype;
 		vector<mytype> H(256);
 		size_t histsize = H.size() * sizeof(mytype);
 
-		//device - buffers
+		// Device buffers
 		cl::Buffer devInputImage(context, CL_MEM_READ_ONLY, inputImage.size());
 		cl::Buffer devOutputHistogram(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devOutputCHistogram(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devLUT(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devOutputImage(context, CL_MEM_READ_WRITE, inputImage.size()); //should be the same as input image
 
-		//Part 4 - device operations
 
-		//4.1 Copy images to device memory
+		// Copy images to device memory
 		queue.enqueueWriteBuffer(devInputImage, CL_TRUE, 0, inputImage.size(), &inputImage.data()[0]);
 		queue.enqueueFillBuffer(devOutputHistogram, 0, 0, histsize);
 
-		//4.2 Setup and execute the kernel (i.e. device code)
-
+		// Setup and execute the kernel
 		//The first kernel call plots a histogram of the frequency of each pixel value (0-255) in the picture
 		cl::Kernel kernelSimpleHist = cl::Kernel(program, "simpleHist");
 		kernelSimpleHist.setArg(0, devInputImage);
@@ -119,7 +116,7 @@ int main(int argc, char **argv) {
 
 		queue.enqueueFillBuffer(devOutputCHistogram, 0, 0, histsize);
 
-		//The second kernel call plots a cumulative histogram of the total pixels in the picture across pixel values 0-255, so by 255, all pixels have been counted
+		// The second kernel call plots a cumulative histogram of the total pixels in the picture across pixel values 0-255, so by 255, all pixels have been counted
 		cl::Kernel kernelCHist = cl::Kernel(program, "cumulativeHist");
 		kernelCHist.setArg(0, devOutputHistogram);
 		kernelCHist.setArg(1, devOutputCHistogram);
@@ -133,7 +130,7 @@ int main(int argc, char **argv) {
 
 		queue.enqueueFillBuffer(devLUT, 0, 0, histsize);
 
-		//The third kernel call creates a new histogram that will serve as a look up table of the new pixel vales. It does this by normalising the cumulative histogram, essentially decreasing the value of the pixels to increase the contrast
+		// The third kernel call creates a new histogram that will serve as a look up table of the new pixel vales. It does this by normalising the cumulative histogram, essentially decreasing the value of the pixels to increase the contrast
 		cl::Kernel kernelLUT = cl::Kernel(program, "LUT");
 		kernelLUT.setArg(0, devOutputCHistogram);
 		kernelLUT.setArg(1, devLUT);
@@ -143,7 +140,7 @@ int main(int argc, char **argv) {
 		queue.enqueueNDRangeKernel(kernelLUT, cl::NullRange, cl::NDRange(histsize), cl::NullRange, NULL, &profEventThree);
 		queue.enqueueReadBuffer(devLUT, CL_TRUE, 0, histsize, &LUT[0]);
 
-		//The last kernel assigns the new pixel values from the lookup table to the output image, so that the output is of higher contrast than the input
+		// The last kernel assigns the new pixel values from the lookup table to the output image, so that the output is of higher contrast than the input
 		cl::Kernel kernelReproject = cl::Kernel(program, "ReProject");
 		kernelReproject.setArg(0, devInputImage);
 		kernelReproject.setArg(1, devLUT);
@@ -151,7 +148,7 @@ int main(int argc, char **argv) {
 
 		cl::Event profEventFour;
 
-		//The values from each histogram are printed, along with the kernel execution times and memory transfer of each kernel.
+		// The values from each histogram are printed, along with the kernel execution times and memory transfer of each kernel.
 		vector<unsigned char> output_buffer(inputImage.size());
 		queue.enqueueNDRangeKernel(kernelReproject, cl::NullRange, cl::NDRange(inputImage.size()), cl::NullRange, NULL, &profEventFour);
 		queue.enqueueReadBuffer(devOutputImage, CL_TRUE, 0, output_buffer.size(), &output_buffer.data()[0]);
