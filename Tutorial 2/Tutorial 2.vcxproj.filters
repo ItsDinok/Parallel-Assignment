@@ -15,8 +15,6 @@
     <None Include="kernels\my_kernels.cl">
       <Filter>kernels</Filter>
     </None>
-    <None Include="handler.py" />
-    <None Include="data.csv" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\Utils.h">

@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
 		// This normalises 16 bit images down to 8 and allows them to be parsed
 		if (inputImage.max() > 256) {
-			inputImage = inputImage16.get_normalize();
+			inputImage = inputImage16.get_normalize(0, 255);
 		}
 
 		CImgDisplay displayInput(inputImage,"input");
@@ -119,14 +119,17 @@ int main(int argc, char **argv) {
 		queue.enqueueFillBuffer(devOutputCHistogram, 0, 0, histsize);
 
 		// The second kernel call plots a cumulative histogram of the total pixels in the picture across pixel values 0-255, so by 255, all pixels have been counted
-		cl::Kernel kernelCHist = cl::Kernel(program, "cumulativeHist");
-		kernelCHist.setArg(0, devOutputHistogram);
-		kernelCHist.setArg(1, devOutputCHistogram);
+		cl::Buffer hsOutput(context, CL_MEM_READ_WRITE, histsize);
+		queue.enqueueCopyBuffer(devOutputHistogram, hsOutput, 0, 0, histsize);
+		
+		cl::Kernel kernelCHist = cl::Kernel(program, "scan_hs");
+		kernelCHist.setArg(0, hsOutput);
+		kernelCHist.setArg(1, devOutputHistogram);
 
 		cl::Event profEventTwo;
 
 		queue.enqueueNDRangeKernel(kernelCHist, cl::NullRange, cl::NDRange(histsize), cl::NullRange, NULL, &profEventTwo);
-		queue.enqueueReadBuffer(devOutputCHistogram, CL_TRUE, 0, histsize, &CH[0]);
+		queue.enqueueReadBuffer(devOutputHistogram, CL_TRUE, 0, histsize, &CH[0]);
 
 		vector<mytype> LUT(256);
 
@@ -134,7 +137,7 @@ int main(int argc, char **argv) {
 
 		// The third kernel call creates a new histogram that will serve as a look up table of the new pixel vales. It does this by normalising the cumulative histogram, essentially decreasing the value of the pixels to increase the contrast
 		cl::Kernel kernelLUT = cl::Kernel(program, "LUT");
-		kernelLUT.setArg(0, devOutputCHistogram);
+		kernelLUT.setArg(0, devOutputHistogram);
 		kernelLUT.setArg(1, devLUT);
 
 		cl::Event profEventThree;
