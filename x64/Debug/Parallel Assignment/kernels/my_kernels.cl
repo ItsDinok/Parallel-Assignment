@@ -8,14 +8,6 @@ kernel void simpleHist(global const uchar* A, global int* B) {
 	atomic_inc(&B[binIndex]);
 }
 
-// Cumulative histogram using the scan pattern
-kernel void cumulativeHist(global int* B, global int* A) {
-	int id = get_global_id(0);
-	int N = get_global_size(0);
-	for (int i = id + 1; i < N; i++)
-		atomic_add(&A[i], B[id]);
-}
-
 // LUT using the map pattern
 kernel void LUT(global int* A, global int* B) {
 	int id = get_global_id(0);
@@ -28,7 +20,8 @@ kernel void ReProject(global uchar* A, global int* LUT, global uchar* B) {
 	B[id] = LUT[A[id]];
 }
 
-kernel void scan_bl(global int* A, global int* B) {
+// Cumulative histogram using the hillis-steele scan algorithm
+kernel void scan_hs(global int* A, global int* B) {
 	int id = get_global_id(0);
 	int N = get_global_size(0);
 	global int* C;
@@ -42,4 +35,12 @@ kernel void scan_bl(global int* A, global int* B) {
 
 		C = A; A = B; B = C; //swap A & B between steps
 	}
+}
+
+// This is redundant now
+kernel void cumulativeHist(global int* A, global int* B) {
+	int id = get_global_id(0);
+	int N = get_global_size(0);
+	for (int i = id + 1; i < N; i++)
+		atomic_add(&B[i], A[id]);
 }

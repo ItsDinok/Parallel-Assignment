@@ -20,9 +20,8 @@ int main(int argc, char **argv) {
 	// This part handles the command line options
 	int platformID = 0;
 	int deviceID = 0;
-	string imageName = "test.pgm"; // Change this to change the input image. Images available: test.pgm, test_large.pgm
-
-	// This determines the correct type of platform and device to use
+	string imageName = "test_large.pgm"; // Change this to change the input image. Images available: test.pgm, test_large.pgm
+	// Menu
 	for (int i = 1; i < argc; i++) {
 		if ((strcmp(argv[i], "-p") == 0) && (i < (argc - 1))) { platformID = atoi(argv[++i]); }
 		else if ((strcmp(argv[i], "-d") == 0) && (i < (argc - 1))) { deviceID = atoi(argv[++i]); }
@@ -77,8 +76,25 @@ int main(int argc, char **argv) {
 
 		// Memory allocation
 
+		// This allows for dynamically sized bins
+		string input;
+		int bins;
+		while (true) {
+
+			cout << "Enter number of bins: " << endl;
+			cin >> input;
+
+			bins = stoi(input);
+
+			if (bins > 0 && bins < 257) {
+				break;
+			}
+
+			cout << "Must have between 1 and 256 bins" << endl;
+		}
+
 		typedef int mytype;
-		vector<mytype> H(256);
+		vector<mytype> H(bins);
 		size_t histsize = H.size() * sizeof(mytype);
 
 		CImg<unsigned char> CB,CR;
@@ -114,7 +130,7 @@ int main(int argc, char **argv) {
 		queue.enqueueNDRangeKernel(kernelSimpleHist, cl::NullRange, cl::NDRange(inputImage.size()), cl::NullRange, NULL, &profEvent);
 		queue.enqueueReadBuffer(devOutputHistogram, CL_TRUE, 0, histsize, &H[0]);
 
-		vector<mytype> CH(256);
+		vector<mytype> CH(bins);
 
 		queue.enqueueFillBuffer(devOutputCHistogram, 0, 0, histsize);
 
@@ -131,7 +147,7 @@ int main(int argc, char **argv) {
 		queue.enqueueNDRangeKernel(kernelCHist, cl::NullRange, cl::NDRange(histsize), cl::NullRange, NULL, &profEventTwo);
 		queue.enqueueReadBuffer(devOutputHistogram, CL_TRUE, 0, histsize, &CH[0]);
 
-		vector<mytype> LUT(256);
+		vector<mytype> LUT(bins);
 
 		queue.enqueueFillBuffer(devLUT, 0, 0, histsize);
 
@@ -165,17 +181,17 @@ int main(int argc, char **argv) {
 		cout << endl;
 
 		cout << "Cumulative Histogram = " << CH << endl;
-		cout << "Cumulative Histogram kernel execution time [ns]: " << profEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventTwo.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
+		cout << "Cumulative Histogram kernel execution time [ns]: " << profEventTwo.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventTwo.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
 		cout << GetFullProfilingInfo(profEventTwo, ProfilingResolution::PROF_US) << endl;
 		cout << endl;
 
 		cout << "LUT = " << LUT << endl;
-		cout << "LUT kernel execution time [ns]: " << profEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventThree.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
+		cout << "LUT kernel execution time [ns]: " << profEventThree.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventThree.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
 		cout << GetFullProfilingInfo(profEventThree, ProfilingResolution::PROF_US) << endl;
 		cout << endl;
 
 
-		cout << "Vector kernel execution time [ns]: " << profEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventFour.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
+		cout << "Vector kernel execution time [ns]: " << profEventFour.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventFour.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
 		cout << GetFullProfilingInfo(profEventFour, ProfilingResolution::PROF_US) << endl;
 
 		CImg<unsigned char> outputImage(outputBuffer.data(), inputImage.width(), inputImage.height(), inputImage.depth(), inputImage.spectrum());

@@ -1,7 +1,7 @@
 ﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(517,5): warning MSB8028: The intermediate directory (x64\Debug\) contains files shared from another project (Tutorial 2.vcxproj).  This can lead to incorrect clean and rebuild behavior.
   Parallel Assignment.cpp
   cl_version.h: CL_TARGET_OPENCL_VERSION is not defined. Defaulting to 220 (OpenCL 2.2)
-  Tutorial 2.vcxproj -> C:\Users\Computing\Source\Repos\Parallel-Assignment\x64\Debug\Parallel Assignment\Parallel Assignment.exe
+  Tutorial 2.vcxproj -> C:\Users\Computing\Source\Repos\Parallel-Assignment1\x64\Debug\Parallel Assignment\Parallel Assignment.exe
   ..\images\test.pgm
   ..\images\test.ppm
   ..\images\test_large.pgm

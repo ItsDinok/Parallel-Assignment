@@ -8,7 +8,6 @@ kernel void simpleHist(global const uchar* A, global int* B) {
 	atomic_inc(&B[binIndex]);
 }
 
-
 // LUT using the map pattern
 kernel void LUT(global int* A, global int* B) {
 	int id = get_global_id(0);
@@ -36,4 +35,12 @@ kernel void scan_hs(global int* A, global int* B) {
 
 		C = A; A = B; B = C; //swap A & B between steps
 	}
+}
+
+// This is redundant now
+kernel void cumulativeHist(global int* A, global int* B) {
+	int id = get_global_id(0);
+	int N = get_global_size(0);
+	for (int i = id + 1; i < N; i++)
+		atomic_add(&B[i], A[id]);
 }
