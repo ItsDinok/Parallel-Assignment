@@ -15,25 +15,12 @@ void print_help() {
 	cerr << "  -f : input image file (default: test.pgm)" << endl;
 	cerr << "  -h : print this message" << endl;
 }
-//This code was developed using Tutorial 2 as a foundation and was appropriately edited and built upon to carry out this task.
-//The first step was to implement a histogram kernel. The hist_simple kernel from tutorial 3 was used as a template. The size of H was predefined as 256 as the pixel values always range from 0 to 255, and the buffer was initialised to 0 using enqueueFillBuffer.
-//A histogram is a simple example of the scatter pattern which writes data into output locations indicated by an index array.
-//The first purpose of plotting this histogram was to identify the distribution of pixel values in the image. Since the majority of pixels in the image fell between the same small range of values, the image is of very low contrast.
-//The histogram implemented uses global memory and atomic operators, which deal with race conditions but serialise the access to global memory and are therefore slow. However, they were appropriate for this task as the amount of data is relatively small, so the execution times remained fast.
-//The next step was to create a cumulative histogram of this which plots the total number of pixels in the image against the pixel values. So, by 255, all pixels in the image have been counted. This was done by using the scan_add_atomic kernel from Tutorial 3 and adapting it appropriately.
-//This is an example of the Scan pattern which computes all partial reductions of a collection so that every element of the output is a reduction of all the elements of the input up to the position of that output element.
-//Then the cumulative histogram needed to be normalised to create a lookup table (LUT) of new values for the pixels to increase the contrast of the image. This was done by creating a kernel to multiply each value in the cumulative histogram by 255/total pixels. This resulted in values ranging from 0-255
-//This is an example of the map pattern. Map applies ‘elemental function’ to every element of data – the result is a new collection of the same shape as the input. The result does not depend on the order in which various instances of the function are executed.
-//The final kernel was also an example of the map pattern. This time, the kernel simply changes each pixel in the input image to the values defined in the LUT.
-//The execution time and memory transfer of each kernel is also logged and printed with each resulting histogram.
-//The result of this program is an output image with a higher, more balanced contrast than the input image. The code works on greyscale .pgm images of varying sizes.
-//By Gabriella Di Gregorio DIG15624188
 
 int main(int argc, char **argv) {
 	// This part handles the command line options
 	int platformID = 0;
 	int deviceID = 0;
-	string imageName = "test_large.pgm"; // Change this to change the input image. Images available: test.pgm, test_large.pgm
+	string imageName = "test.pgm"; // Change this to change the input image. Images available: test.pgm, test_large.pgm
 
 	// This determines the correct type of platform and device to use
 	for (int i = 1; i < argc; i++) {
@@ -49,6 +36,13 @@ int main(int argc, char **argv) {
 	// This detects exceptions
 	try {
 		CImg<unsigned char> inputImage(imageName.c_str());
+		CImg<unsigned short> inputImage16(imageName.c_str());
+
+		// This normalises 16 bit images down to 8 and allows them to be parsed
+		if (inputImage.max() > 256) {
+			inputImage = inputImage16.get_normalize();
+		}
+
 		CImgDisplay displayInput(inputImage,"input");
 
 		// A 3x3 convolution mask implementing an averaging filter
@@ -67,9 +61,7 @@ int main(int argc, char **argv) {
 
 		// Builds device code
 		cl::Program::Sources sources;
-
 		AddSources(sources, "kernels/my_kernels.cl");
-
 		cl::Program program(context, sources);
 
 		// Builds Kernel Code
@@ -89,13 +81,23 @@ int main(int argc, char **argv) {
 		vector<mytype> H(256);
 		size_t histsize = H.size() * sizeof(mytype);
 
+		CImg<unsigned char> CB,CR;
+		bool isColour = false;
+
+		if (inputImage.spectrum() == 3) {
+			inputImage = inputImage.get_RGBtoYCbCr();
+			CB = inputImage.get_channel(1);
+			CR = inputImage.get_channel(2);
+			inputImage = inputImage.get_channel(0);
+			isColour = true;
+		}
+
 		// Device buffers
 		cl::Buffer devInputImage(context, CL_MEM_READ_ONLY, inputImage.size());
 		cl::Buffer devOutputHistogram(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devOutputCHistogram(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devLUT(context, CL_MEM_READ_WRITE, histsize);
 		cl::Buffer devOutputImage(context, CL_MEM_READ_WRITE, inputImage.size()); //should be the same as input image
-
 
 		// Copy images to device memory
 		queue.enqueueWriteBuffer(devInputImage, CL_TRUE, 0, inputImage.size(), &inputImage.data()[0]);
@@ -149,9 +151,9 @@ int main(int argc, char **argv) {
 		cl::Event profEventFour;
 
 		// The values from each histogram are printed, along with the kernel execution times and memory transfer of each kernel.
-		vector<unsigned char> output_buffer(inputImage.size());
+		vector<unsigned char> outputBuffer(inputImage.size());
 		queue.enqueueNDRangeKernel(kernelReproject, cl::NullRange, cl::NDRange(inputImage.size()), cl::NullRange, NULL, &profEventFour);
-		queue.enqueueReadBuffer(devOutputImage, CL_TRUE, 0, output_buffer.size(), &output_buffer.data()[0]);
+		queue.enqueueReadBuffer(devOutputImage, CL_TRUE, 0, outputBuffer.size(), &outputBuffer.data()[0]);
 
 		cout << endl;
 		cout << "Histogram = " << H << endl;
@@ -173,13 +175,25 @@ int main(int argc, char **argv) {
 		cout << "Vector kernel execution time [ns]: " << profEvent.getProfilingInfo<CL_PROFILING_COMMAND_END>() - profEventFour.getProfilingInfo<CL_PROFILING_COMMAND_START>() << endl;
 		cout << GetFullProfilingInfo(profEventFour, ProfilingResolution::PROF_US) << endl;
 
-		CImg<unsigned char> output_image(output_buffer.data(), inputImage.width(), inputImage.height(), inputImage.depth(), inputImage.spectrum());
-		CImgDisplay disp_output(output_image,"output");
+		CImg<unsigned char> outputImage(outputBuffer.data(), inputImage.width(), inputImage.height(), inputImage.depth(), inputImage.spectrum());
+		CImg <unsigned char> recombinedImage (inputImage.width(), inputImage.height(), 1, 3);
 
- 		while (!displayInput.is_closed() && !disp_output.is_closed()
-			&& !displayInput.is_keyESC() && !disp_output.is_keyESC()) {
+		if (isColour) {
+			cimg_forXY(recombinedImage, x, y) {
+				recombinedImage(x, y, 0, 0) = outputImage(x, y);
+				recombinedImage(x, y, 0, 1) = CB(x, y);
+				recombinedImage(x, y, 0, 2) = CR(x, y);
+			}
+
+			outputImage = recombinedImage.YCbCrtoRGB();
+		}
+
+		CImgDisplay displayOutput(outputImage,"output");
+
+ 		while (!displayInput.is_closed() && !displayOutput.is_closed()
+			&& !displayInput.is_keyESC() && !displayOutput.is_keyESC()) {
 		    displayInput.wait(1);
-		    disp_output.wait(1);
+		    displayOutput.wait(1);
 	    }		
 
 	}
